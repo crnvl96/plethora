@@ -9,12 +9,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Execute() {
-	rootCmd := &cobra.Command{
-		Use:   "plethora",
-		Short: "A study over some programming ideas",
-	}
+var rootCmd = &cobra.Command{
+	Use:   "plethora",
+	Short: "A study over some programming ideas",
+}
 
+func Execute() {
 	if err := fang.Execute(context.Background(), rootCmd); err != nil {
 		os.Exit(1)
 	}
