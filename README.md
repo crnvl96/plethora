@@ -1,0 +1,3 @@
+# Plethora
+
+Some programming ideas
