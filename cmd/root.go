@@ -1,4 +1,4 @@
-// Package cmd represents the entrypoint of the cli
+// Package cmd
 package cmd
 
 import (
