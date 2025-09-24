@@ -1,4 +1,3 @@
-// Package ideas
 package ideas
 
 import (

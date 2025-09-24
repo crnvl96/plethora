@@ -1,4 +1,3 @@
-// Package ui
 package ui
 
 import (
