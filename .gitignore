@@ -1,5 +1,8 @@
 # environment variables
 .env
 
-# Binary file
+# binary file
 plethora
+
+# coverage report
+coverage.out
