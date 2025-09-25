@@ -2,89 +2,65 @@ package ui
 
 import (
 	"fmt"
-	"io"
 	"os"
-	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-const (
-	moderateMagenta = "170"
-	listHeight      = 14
-	defaultWidth    = 20
-)
+var docStyle = lipgloss.NewStyle().Margin(1, 2)
 
-var (
-	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color(moderateMagenta))
-	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
-	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
-)
-
-type item string
-
-func (i item) FilterValue() string { return "" }
-
-type itemDelegate struct{}
-
-func (d itemDelegate) Height() int { return 1 }
-
-func (d itemDelegate) Spacing() int { return 0 }
-
-func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-
-func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(item)
-	if !ok {
-		return
+type (
+	Item struct {
+		Header, Body string
+		Command      tea.ExecCommand
+		Callback     tea.ExecCallback
 	}
 
-	str := fmt.Sprintf("%d. %s", index+1, i)
-
-	fn := itemStyle.Render
-	if index == m.Index() {
-		fn = func(s ...string) string {
-			return selectedItemStyle.Render("> " + strings.Join(s, " "))
-		}
+	ExecDoneMsg struct {
+		Err error
 	}
 
-	fmt.Fprint(w, fn(str))
-}
+	RenderParams struct {
+		Items []list.Item
+		Title string
+	}
 
-type model struct {
-	list     list.Model
-	choice   string
-	quitting bool
-}
+	model struct {
+		list list.Model
+	}
+)
 
-func (m model) Init() tea.Cmd {
-	return nil
-}
+func (i Item) Title() string       { return i.Header }
+func (i Item) Description() string { return i.Body }
+func (i Item) FilterValue() string { return i.Body }
 
+func (m model) Init() tea.Cmd { return nil }
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.list.SetWidth(msg.Width)
-		return m, nil
 
 	case tea.KeyMsg:
-		switch keypress := msg.String(); keypress {
-		case "q", "ctrl+c":
-			m.quitting = true
-			return m, tea.Quit
-
-		case "enter":
-			i, ok := m.list.SelectedItem().(item)
-			if ok {
-				m.choice = string(i)
-			}
+		if msg.String() == "ctrl+c" {
 			return m, tea.Quit
 		}
+
+		if msg.String() == "enter" {
+			i, ok := m.list.SelectedItem().(Item)
+
+			if ok {
+				cmd := tea.Exec(i.Command, i.Callback)
+				return m, cmd
+			}
+
+		}
+
+	case ExecDoneMsg:
+		return m, tea.Quit
+
+	case tea.WindowSizeMsg:
+		h, v := docStyle.GetFrameSize()
+		m.list.SetSize(msg.Width-h, msg.Height-v)
 	}
 
 	var cmd tea.Cmd
@@ -93,37 +69,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-	if m.choice != "" {
-		return quitTextStyle.Render(fmt.Sprintf("%s? Sounds good to me.", m.choice))
-	}
-	if m.quitting {
-		return quitTextStyle.Render("Not hungry? That’s cool.")
-	}
-	return "\n" + m.list.View()
+	return docStyle.Render(m.list.View())
 }
 
-type PickerParams struct {
-	Items []string
-	Title string
-}
+func RenderPicker(p RenderParams) {
+	m := model{list: list.New(p.Items, list.NewDefaultDelegate(), 0, 0)}
+	m.list.Title = p.Title
 
-func Picker(p PickerParams) {
-	listItems := []list.Item{}
-	for _, i := range p.Items {
-		listItems = append(listItems, item(i))
-	}
+	pg := tea.NewProgram(m, tea.WithAltScreen())
 
-	l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
-	l.Title = p.Title
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.Styles.Title = titleStyle
-	l.Styles.PaginationStyle = paginationStyle
-	l.Styles.HelpStyle = helpStyle
-
-	m := model{list: l}
-
-	if _, err := tea.NewProgram(m).Run(); err != nil {
+	if _, err := pg.Run(); err != nil {
 		fmt.Println("Error running program:", err)
 		os.Exit(1)
 	}

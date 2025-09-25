@@ -1,3 +1,5 @@
 package ideas
 
-var Ideas = make(map[string]func())
+import "github.com/crnvl96/plethora/internal/ui"
+
+var Ideas = make(map[string]ui.Item)
