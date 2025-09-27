@@ -6,7 +6,22 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
+
+type mockBagelsGenerator struct {
+	mock.Mock
+}
+
+func (m *mockBagelsGenerator) getSecretNum() string {
+	args := m.Called()
+	return args.String(0)
+}
+
+func (m *mockBagelsGenerator) getClues(guess, secret string) string {
+	args := m.Called(guess, secret)
+	return args.String(0)
+}
 
 func TestGetSecretNum(t *testing.T) {
 	g := newDefaultBagelsGenerator()
@@ -40,30 +55,23 @@ func TestGetClues(t *testing.T) {
 	}
 }
 
-type testBagelsGenerator struct{}
+func TestRun(t *testing.T) {
+	mockGen := &mockBagelsGenerator{}
+	mockGen.On("getSecretNum").Return("123")
+	mockGen.On("getClues", "123", "123").Return("You got it!")
 
-func (t *testBagelsGenerator) getSecretNum() string {
-	return "123"
-}
-
-func (t *testBagelsGenerator) getClues(guess, secret string) string {
-	d := &defaultBagelsGenerator{}
-	return d.getClues(guess, secret)
-}
-
-func TestSetStreams(t *testing.T) {
 	cmd := &bagelsExecCommand{
-		generator: &testBagelsGenerator{},
+		generator: mockGen,
 		stdin:     strings.NewReader(""),
 		stdout:    &bytes.Buffer{},
 		stderr:    &bytes.Buffer{},
 	}
 
 	var stdoutBuf bytes.Buffer
-	input := "123\nn\n"
-	cmd.SetStdin(strings.NewReader(input))
+
+	cmd.SetStdin(strings.NewReader("123\nn\n"))
 	cmd.SetStdout(&stdoutBuf)
-	cmd.SetStderr(&bytes.Buffer{}) // not testing stderr here
+	cmd.SetStderr(&bytes.Buffer{})
 
 	err := cmd.Run()
 	assert.NoError(t, err)
@@ -71,4 +79,6 @@ func TestSetStreams(t *testing.T) {
 	output := stdoutBuf.String()
 	assert.Contains(t, output, "You got it!")
 	assert.Contains(t, output, "Thanks for playing")
+
+	mockGen.AssertExpectations(t)
 }
