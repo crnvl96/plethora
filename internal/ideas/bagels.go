@@ -75,23 +75,28 @@ func newDefaultBagelsGenerator() *defaultBagelsGenerator {
 	return &defaultBagelsGenerator{}
 }
 
-type bagelsExecCommand struct{ generator bagelsGenerator }
+type bagelsExecCommand struct {
+	generator bagelsGenerator
+	stdin     io.Reader
+	stdout    io.Writer
+	stderr    io.Writer
+}
 
-func (b *bagelsExecCommand) SetStderr(w io.Writer) {}
-func (b *bagelsExecCommand) SetStdout(w io.Writer) {}
-func (b *bagelsExecCommand) SetStdin(w io.Reader)  {}
+func (b *bagelsExecCommand) SetStderr(w io.Writer) { b.stderr = w }
+func (b *bagelsExecCommand) SetStdout(w io.Writer) { b.stdout = w }
+func (b *bagelsExecCommand) SetStdin(r io.Reader)  { b.stdin = r }
 func (b *bagelsExecCommand) Run() error {
-	scanner := bufio.NewScanner(os.Stdin)
+	scanner := bufio.NewScanner(b.stdin)
 	sigChan := make(chan os.Signal, 1)
 
 	signal.Notify(sigChan, os.Interrupt)
 	go func() {
 		<-sigChan
-		fmt.Fprintln(os.Stderr, "\nInterrupted. Thanks for playing!")
+		fmt.Fprintln(b.stderr, "\nInterrupted. Thanks for playing!")
 		os.Exit(0)
 	}()
 
-	fmt.Fprintf(os.Stdout, `Bagels, a deductive login game.
+	fmt.Fprintf(b.stdout, `Bagels, a deductive login game.
 	By Al Sweigart al@inventwithpython.com
 
 	I am thinking of a %d-digit number with no repeated digits.
@@ -107,14 +112,14 @@ func (b *bagelsExecCommand) Run() error {
 
 	for {
 		secretNum := b.generator.getSecretNum()
-		fmt.Fprintln(os.Stdout, "I have thought up a number")
-		fmt.Fprintf(os.Stdout, "You have %d guesses to get it\n", maxGuesses)
+		fmt.Fprintln(b.stdout, "I have thought up a number")
+		fmt.Fprintf(b.stdout, "You have %d guesses to get it\n", maxGuesses)
 
 		var numGuesses int
 		for numGuesses = 1; numGuesses <= maxGuesses; numGuesses++ {
 			guess := ""
 			for {
-				fmt.Fprintf(os.Stdout, "Guess #%d: ", numGuesses)
+				fmt.Fprintf(b.stdout, "Guess #%d: ", numGuesses)
 				if !scanner.Scan() {
 					return errors.New("failed to read input")
 				}
@@ -128,18 +133,18 @@ func (b *bagelsExecCommand) Run() error {
 			}
 
 			clues := b.generator.getClues(guess, secretNum)
-			fmt.Fprintln(os.Stdout, clues)
+			fmt.Fprintln(b.stdout, clues)
 			if guess == secretNum {
 				break
 			}
 		}
 
 		if numGuesses > maxGuesses {
-			fmt.Fprintln(os.Stdout, "You ran out of guesses")
-			fmt.Fprintf(os.Stdout, "The answer was %s\n", secretNum)
+			fmt.Fprintln(b.stdout, "You ran out of guesses")
+			fmt.Fprintf(b.stdout, "The answer was %s\n", secretNum)
 		}
 
-		fmt.Fprintln(os.Stdout, "Want to play again? (y/n)")
+		fmt.Fprintln(b.stdout, "Want to play again? (y/n)")
 		if !scanner.Scan() {
 			break
 		}
@@ -150,13 +155,18 @@ func (b *bagelsExecCommand) Run() error {
 		}
 	}
 
-	fmt.Fprintln(os.Stdout, "Thanks for playing")
+	fmt.Fprintln(b.stdout, "Thanks for playing")
 	return nil
 }
 
 func newBagelsExecCommand() *bagelsExecCommand {
 	g := newDefaultBagelsGenerator()
-	return &bagelsExecCommand{generator: g}
+	return &bagelsExecCommand{
+		generator: g,
+		stdin:     os.Stdin,
+		stdout:    os.Stdout,
+		stderr:    os.Stderr,
+	}
 }
 
 type bagelsExecCallback struct{}
