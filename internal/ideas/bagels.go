@@ -87,8 +87,8 @@ func (b *bagelsExecCommand) SetStdout(w io.Writer) { b.stdout = w }
 func (b *bagelsExecCommand) SetStdin(r io.Reader)  { b.stdin = r }
 func (b *bagelsExecCommand) Run() error {
 	scanner := bufio.NewScanner(b.stdin)
-	sigChan := make(chan os.Signal, 1)
 
+	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	go func() {
 		<-sigChan
@@ -145,10 +145,6 @@ func (b *bagelsExecCommand) Run() error {
 		}
 
 		fmt.Fprintln(b.stdout, "Want to play again? (y/n)")
-		if !scanner.Scan() {
-			break
-		}
-
 		answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
 		if !strings.HasPrefix(answer, "y") {
 			break
